@@ -15,6 +15,7 @@ class AtributoItem(QGraphicsEllipseItem):
         self.setFlag(QGraphicsEllipseItem.ItemIsMovable)
         self.setFlag(QGraphicsEllipseItem.ItemIsSelectable)
         self.texto = QGraphicsTextItem(nome)
+        self.texto.setFlag(QGraphicsTextItem.ItemIsMovable)
         self.texto.setFont(QFont("Arial", 8))
         self.texto.setDefaultTextColor(Qt.black)
         self.texto.setParentItem(self)
@@ -32,7 +33,7 @@ class AtributoItem(QGraphicsEllipseItem):
         QTimer.singleShot(0, self.atualizar_ligacao)
 
     def atualizar_ligacao(self):
-        origem = self.mapToScene(QPointF(0, 0))  # centro da bolinha
+        origem = self.mapToScene(QPointF(0, 10))  # centro da bolinha
         ent_rect = self.entidade.rect()
         destino = self.entidade.mapToScene(QPointF(ent_rect.width() / 2, ent_rect.height()))  # centro da base
 
@@ -42,6 +43,9 @@ class AtributoItem(QGraphicsEllipseItem):
             self.entidade.scene().addItem(self.ligacao)
         self.ligacao.setLine(linha)
         self.ligacao.setPen(QPen(Qt.black, 1))
+
+    def centralizar_texto(self):
+        self.texto.setPos(12, -8) #posição inicial
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
@@ -56,6 +60,15 @@ class AtributoItem(QGraphicsEllipseItem):
         super().mouseMoveEvent(event)
         self.atualizar_ligacao()
 
+    def mouseDoubleClickEvent(self, event):
+        self.scene().parent().iniciar_edicao_nome(self)
+        super().mouseDoubleClickEvent(event)
+    
+    def atualizar_nome(self, novo_nome):
+        self.nome = novo_nome
+        self.texto.setPlainText(novo_nome)
+        self.centralizar_texto()
+
 
 class EntidadeItem(QGraphicsRectItem):
     def __init__(self, nome="Entidade", x=0, y=0, largura=120, altura=60):
@@ -63,7 +76,7 @@ class EntidadeItem(QGraphicsRectItem):
         self.setBrush(QBrush(QColor("#E0E0E0")))
         self.setFlag(QGraphicsRectItem.ItemIsSelectable)
         self.setFlag(QGraphicsRectItem.ItemIsMovable)
-
+        self.setFlag(QGraphicsRectItem.ItemSendsGeometryChanges)
         self.setPos(x, y)
         self.nome = nome
         self.texto = QGraphicsTextItem(self.nome, self)
@@ -84,6 +97,12 @@ class EntidadeItem(QGraphicsRectItem):
         atributo.setPos(posicao)
         self.scene().addItem(atributo)
         self.atributos.append(atributo)
+
+    def itemChange(self, change, value):
+        if change == QGraphicsItem.ItemPositionChange:
+            for atributo in self.atributos:
+                atributo.atualizar_ligacao()
+        return super().itemChange(change, value)
 
     def mouseDoubleClickEvent(self, event):
         self.scene().parent().iniciar_edicao_nome(self)
@@ -129,7 +148,8 @@ class AreaGrafica(QGraphicsView):
 
         self.entidade_selecionada = entidade
         self.editor_nome = QLineEdit(entidade.nome, self)
-        self.editor_nome.setFixedWidth(int(entidade.rect().width()))
+        text_rect = entidade.texto.boundingRect()
+        self.editor_nome.setFixedWidth(int(text_rect.width()) + 1)
         ponto = self.mapFromScene(entidade.scenePos())
         self.editor_nome.move(ponto)
         self.editor_nome.setFocus()
